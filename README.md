@@ -1,3 +1,5 @@
+Forked from http://sourceforge.net/projects/p7zip/
+
 p7zip_explode
 =============
 
