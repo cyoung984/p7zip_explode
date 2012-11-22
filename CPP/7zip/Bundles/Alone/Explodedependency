@@ -1,0 +1,63 @@
+ # DO NOT DELETE
+
+../../UI/Console/Explode.o: ../../UI/Console/Explode.h
+../../UI/Console/Explode.o: ../../UI/Common/LoadCodecs.h
+../../UI/Console/Explode.o: ../../../Common/Types.h ../../../../C/Types.h
+../../UI/Console/Explode.o: ../../../Common/MyCom.h
+../../UI/Console/Explode.o: ../../../Common/MyWindows.h /usr/include/string.h
+../../UI/Console/Explode.o: /usr/include/features.h /usr/include/xlocale.h
+../../UI/Console/Explode.o: ../../../Common/MyGuidDef.h
+../../UI/Console/Explode.o: ../../../Common/Types.h
+../../UI/Console/Explode.o: ../../../Common/MyString.h
+../../UI/Console/Explode.o: ../../../Common/MyVector.h ../../../Common/Defs.h
+../../UI/Console/Explode.o: ../../../Common/Buffer.h ../../ICoder.h
+../../UI/Console/Explode.o: ../../IStream.h ../../../Common/MyUnknown.h
+../../UI/Console/Explode.o: ../../../Common/Types.h ../../IDecl.h
+../../UI/Console/Explode.o: ../../Archive/IArchive.h ../../IProgress.h
+../../UI/Console/Explode.o: ../../IStream.h ../../PropID.h
+../../UI/Console/Explode.o: ../../UI/Common/OpenArchive.h
+../../UI/Console/Explode.o: ../../UI/Common/ArchiveOpenCallback.h
+../../UI/Console/Explode.o: ../../IPassword.h ../../UI/Common/LoadCodecs.h
+../../UI/Console/Explode.o: ../../UI/Console/OpenCallbackConsole.h
+../../UI/Console/Explode.o: ../../UI/Common/ArchiveOpenCallback.h
+../../UI/Console/Explode.o: ../../Archive/7z/7zItem.h ../../Common/MethodId.h
+../../UI/Console/Explode.o: ../../../Common/Types.h
+../../UI/Console/Explode.o: ../../Archive/7z/7zHeader.h
+../../UI/Console/Explode.o: ../../Archive/7z/7zOut.h
+../../UI/Console/Explode.o: ../../Archive/7z/7zCompressionMode.h
+../../UI/Console/Explode.o: ../../../Windows/PropVariant.h
+../../UI/Console/Explode.o: ../../../Common/MyWindows.h
+../../UI/Console/Explode.o: ../../Common/MethodProps.h
+../../UI/Console/Explode.o: ../../../Common/MyVector.h
+../../UI/Console/Explode.o: ../../../Windows/PropVariant.h
+../../UI/Console/Explode.o: ../../Common/MethodId.h
+../../UI/Console/Explode.o: ../../Archive/7z/7zEncode.h
+../../UI/Console/Explode.o: ../../Archive/Common/CoderMixer2.h
+../../UI/Console/Explode.o: ../../../Common/MyVector.h
+../../UI/Console/Explode.o: ../../Archive/Common/CoderMixer2MT.h
+../../UI/Console/Explode.o: ../../Archive/Common/CoderMixer2.h
+../../UI/Console/Explode.o: ../../Common/StreamBinder.h
+../../UI/Console/Explode.o: ../../../Windows/Synchronization.h
+../../UI/Console/Explode.o: ../../../../C/Threads.h /usr/include/pthread.h
+../../UI/Console/Explode.o: /usr/include/endian.h /usr/include/sched.h
+../../UI/Console/Explode.o: /usr/include/time.h
+../../UI/Console/Explode.o: ../../../Windows/Synchronization2.h
+../../UI/Console/Explode.o: ../../Common/VirtThread.h
+../../UI/Console/Explode.o: ../../../Windows/Thread.h
+../../UI/Console/Explode.o: ../../Archive/7z/7zItem.h
+../../UI/Console/Explode.o: ../../Common/CreateCoder.h
+../../UI/Console/Explode.o: ../../../Common/MyCom.h
+../../UI/Console/Explode.o: ../../../Common/MyString.h ../../ICoder.h
+../../UI/Console/Explode.o: ../../Common/OutBuffer.h
+../../UI/Console/Explode.o: ../../../Common/MyException.h
+../../UI/Console/Explode.o: ../../Archive/7z/7zHandler.h
+../../UI/Console/Explode.o: ../../Archive/IArchive.h
+../../UI/Console/Explode.o: ../../Archive/Common/HandlerOut.h
+../../UI/Console/Explode.o: ../../Archive/7z/7zIn.h ../../IStream.h
+../../UI/Console/Explode.o: ../../Common/InBuffer.h
+../../UI/Console/Explode.o: ../../Common/FileStreams.h
+../../UI/Console/Explode.o: ../../../Common/C_FileIO.h /usr/include/stdio.h
+../../UI/Console/Explode.o: /usr/include/libio.h /usr/include/_G_config.h
+../../UI/Console/Explode.o: /usr/include/wchar.h
+../../UI/Console/Explode.o: ../../Common/LimitedStreams.h
+../../UI/Console/Explode.o: ../../Compress/CopyCoder.h /usr/include/assert.h

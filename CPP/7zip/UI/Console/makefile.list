@@ -7,6 +7,7 @@ SRCS=\
  ../../UI/Console/ExtractCallbackConsole.cpp \
  ../../UI/Console/BenchCon.cpp \
  ../../UI/Console/List.cpp \
+ ../../UI/Console/Explode.cpp \
  ../../UI/Console/Main.cpp \
  ../../UI/Console/MainAr.cpp \
  ../../UI/Console/OpenCallbackConsole.cpp \

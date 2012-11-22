@@ -18,7 +18,6 @@ CONSOLE_OBJS = \
   ExtractCallbackConsole.o \
   BenchCon.o \
   List.o \
-  Explode.o \
   Main.o \
   MainAr.o \
   OpenCallbackConsole.o \
@@ -108,4 +107,3 @@ OBJS = \
 
 include ../../../../makefile.glb
 
-# DO NOT DELETE

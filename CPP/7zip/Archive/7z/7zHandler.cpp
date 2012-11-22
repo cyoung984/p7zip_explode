@@ -52,6 +52,43 @@ STDMETHODIMP CHandler::GetNumberOfItems(UInt32 *numItems)
   return S_OK;
 }
 
+// Explode the database into one database per folder.
+void CHandler::Explode(CObjectVector<CArchiveDatabase>& exploded,
+	CRecordVector<UInt64>& folderSizes, 
+	CRecordVector<UInt64>& folderPositions)
+{
+	for (int folderIndex = 0; folderIndex < _db.Folders.Size(); folderIndex++)
+	{
+		CFolder& folder = _db.Folders[folderIndex];
+		folderSizes.Add(_db.GetFolderFullPackSize(folderIndex));
+		folderPositions.Add(_db.GetFolderStreamPos(folderIndex, 0));
+
+		CArchiveDatabase newDatabase;
+		newDatabase.Folders.Add(folder);
+		newDatabase.NumUnpackStreamsVector.Add(
+			_db.NumUnpackStreamsVector[folderIndex]); // number of files (i think)
+
+		// i think this is right
+		for (int packSizes = 0; packSizes < folder.PackStreams.Size(); packSizes++)
+			newDatabase.PackSizes.Add(_db.GetFolderPackStreamSize(folderIndex, packSizes));
+
+		//newDatabase.PackSizes.Add(folderLen); 
+		newDatabase.PackCRCs.Add(folder.UnpackCRC);
+		newDatabase.PackCRCsDefined.Add(folder.UnpackCRCDefined);
+
+		for (int x = 0; x < _db.Files.Size(); x++) { // should just do this once per db, not folder
+			UInt64 _folderIndex = _db.FileIndexToFolderIndexMap[x];
+			if (_folderIndex == folderIndex) {
+				CFileItem file;
+				CFileItem2 finfo;
+				_db.GetFile(x, file, finfo);
+				newDatabase.AddFile(file, finfo);
+			}
+		}
+		exploded.Add(newDatabase);
+	}
+}
+
 #ifdef _SFX
 
 IMP_IInArchive_ArcProps_NO

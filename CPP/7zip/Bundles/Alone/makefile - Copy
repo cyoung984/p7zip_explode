@@ -17,7 +17,6 @@ CONSOLE_OBJS = \
   ConsoleClose.o \
   ExtractCallbackConsole.o \
   List.o \
-  Explode.o \
   Main.o \
   MainAr.o \
   OpenCallbackConsole.o \

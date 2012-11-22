@@ -24,7 +24,8 @@ namespace NCommandType { enum EEnum
   kFullExtract,
   kList,
   kBenchmark,
-  kInfo
+  kInfo,
+  kExplode
 };}
 
 namespace NRecursedType { enum EEnum

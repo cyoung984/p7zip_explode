@@ -173,6 +173,69 @@ List.o: ../../UI/Console/List.cpp ../../../myWindows/StdAfx.h \
  ../../UI/Console/../Common/LoadCodecs.h \
  ../../UI/Console/OpenCallbackConsole.h \
  ../../UI/Console/../Common/ArchiveOpenCallback.h
+ Explode.o: ../../UI/Console/Explode.cpp \
+	 ../../UI/Console/Explode.h \
+	 ../../UI/Common/LoadCodecs.h \
+	 ../../../Common/Types.h ../../../../C/Types.h \
+	 ../../../Common/MyCom.h \
+	 ../../../Common/MyWindows.h /usr/include/string.h \
+	 /usr/include/features.h /usr/include/xlocale.h \
+	 ../../../Common/MyGuidDef.h \
+	 ../../../Common/Types.h \
+	 ../../../Common/MyString.h \
+	 ../../../Common/MyVector.h ../../../Common/Defs.h \
+	 ../../../Common/Buffer.h ../../ICoder.h \
+	 ../../IStream.h ../../../Common/MyUnknown.h \
+	 ../../../Common/Types.h ../../IDecl.h \
+	 ../../Archive/IArchive.h ../../IProgress.h \
+	 ../../IStream.h ../../PropID.h \
+	 ../../UI/Common/OpenArchive.h \
+	 ../../UI/Common/ArchiveOpenCallback.h \
+	 ../../IPassword.h ../../UI/Common/LoadCodecs.h \
+	 ../../UI/Console/OpenCallbackConsole.h \
+	 ../../UI/Common/ArchiveOpenCallback.h \
+	 ../../Archive/7z/7zItem.h ../../Common/MethodId.h \
+	 ../../../Common/Types.h \
+	 ../../Archive/7z/7zHeader.h \
+	 ../../Archive/7z/7zOut.h \
+	 ../../Archive/7z/7zCompressionMode.h \
+	 ../../../Windows/PropVariant.h \
+	 ../../../Common/MyWindows.h \
+	 ../../Common/MethodProps.h \
+	 ../../../Common/MyVector.h \
+	 ../../../Windows/PropVariant.h \
+	 ../../Common/MethodId.h \
+	 ../../Archive/7z/7zEncode.h \
+	 ../../Archive/Common/CoderMixer2.h \
+	 ../../../Common/MyVector.h \
+	 ../../Archive/Common/CoderMixer2MT.h \
+	 ../../Archive/Common/CoderMixer2.h \
+	 ../../Common/StreamBinder.h \
+	 ../../../Windows/Synchronization.h \
+	 ../../../../C/Threads.h /usr/include/pthread.h \
+	 /usr/include/endian.h /usr/include/sched.h \
+	 /usr/include/time.h \
+	 ../../../Windows/Synchronization2.h \
+	 ../../Common/VirtThread.h \
+	 ../../../Windows/Thread.h \
+	 ../../Archive/7z/7zItem.h \
+	 ../../Common/CreateCoder.h \
+	 ../../../Common/MyCom.h \
+	 ../../../Common/MyString.h ../../ICoder.h \
+	 ../../Common/OutBuffer.h \
+	 ../../../Common/MyException.h \
+	 ../../Archive/7z/7zHandler.h \
+	 ../../Archive/IArchive.h \
+	 ../../Archive/Common/HandlerOut.h \
+	 ../../Archive/7z/7zIn.h ../../IStream.h \
+	 ../../Common/InBuffer.h \
+	 ../../Common/FileStreams.h \
+	 ../../../Common/C_FileIO.h /usr/include/stdio.h \
+	 /usr/include/libio.h /usr/include/_G_config.h \
+	 /usr/include/wchar.h \
+	 ../../Common/LimitedStreams.h \
+	 ../../Compress/CopyCoder.h /usr/include/assert.h
+
 Main.o: ../../UI/Console/Main.cpp ../../../myWindows/StdAfx.h \
  ../../../myWindows/config.h ../../../Common/MyWindows.h \
  ../../../Common/MyGuidDef.h ../../../Common/Types.h \

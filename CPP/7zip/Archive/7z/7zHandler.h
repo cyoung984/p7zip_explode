@@ -70,6 +70,11 @@ public:
   DECL_ISetCompressCodecsInfo
 
   CHandler();
+  
+    // Explode the database into one database per folder.
+  void Explode(CObjectVector<CArchiveDatabase>& exploded,
+	  CRecordVector<UInt64>& folderSizes, 
+	  CRecordVector<UInt64>& folderPositions);
 
 private:
   CMyComPtr<IInStream> _inStream;
@@ -96,7 +101,7 @@ private:
       , UInt32 numThreads
       #endif
       );
-
+public: // todo: was private
   HRESULT SetCompressionMethod(
       CCompressionMethodMode &method,
       CCompressionMethodMode &headerMethod);
