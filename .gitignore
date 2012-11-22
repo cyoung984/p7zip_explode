@@ -1,9 +1,12 @@
 #visual studio
 */ipch/*
 *.sdf
+*/Release/
+*/Debug/
 
 #linux bins
 bin/
+
 
 #7zip
 *.7z
