@@ -50,7 +50,7 @@ Explode.o: ../../IStream.h ../../Common/InBuffer.h ../../Common/FileStreams.h
 Explode.o: ../../../Common/C_FileIO.h /usr/include/stdio.h
 Explode.o: /usr/include/libio.h /usr/include/_G_config.h /usr/include/wchar.h
 Explode.o: ../../Common/LimitedStreams.h ../../Compress/CopyCoder.h
-Explode.o: /usr/include/assert.h
+Explode.o: ../../../Windows/FileDir.h /usr/include/assert.h
 ExtractCallbackConsole.o: ExtractCallbackConsole.h ../../Common/FileStreams.h
 ExtractCallbackConsole.o: ../../../Common/C_FileIO.h /usr/include/stdio.h
 ExtractCallbackConsole.o: /usr/include/features.h /usr/include/libio.h

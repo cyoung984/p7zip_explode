@@ -12,12 +12,13 @@
 #include "../../Common/FileStreams.h"
 #include "../../Common/LimitedStreams.h"
 #include "../../Compress/CopyCoder.h"
+#include "../../../Windows/FileDir.h"
 
 #include <assert.h>
 
 using namespace NWindows;
 
-#define SHOW_ERROR(x) g_StdOut << endl << "Error: " << archiveName << ": " \
+#define SHOW_ERROR(x) g_StdOut << endl << "Error: " << archivePath << ": " \
 	<< x << endl; numErrors++; 
 
 static HRESULT WriteRange(IInStream *inStream, ISequentialOutStream *outStream,
@@ -35,6 +36,25 @@ static HRESULT WriteRange(IInStream *inStream, ISequentialOutStream *outStream,
 	return (copyCoderSpec->TotalSize == size ? S_OK : E_FAIL);
 }
 
+// Strip the file name from the full path (if present) and append trailing /
+UString StripFile(UString& path) 
+{
+	UString file;
+	// remove file name
+	int last = path.ReverseFind(L'/');
+	if (last != -1) {
+		int namelen = path.Length() - last;
+
+		file = path.Right(namelen - 1);		
+		path.Delete(last + 1, namelen - 1);
+	} else {// file not directory
+		file = path;
+		path.Empty();
+	}
+	return file;
+}
+
+
 // Create a new 7z archive for each folder contained in the archive to be
 // exploded.
 HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
@@ -45,13 +65,19 @@ HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 	int numArcs = arcPaths.Size();
 	for (int i = 0; i < numArcs; i++)
 	{
-		const UString &archiveName = arcPaths[i];
+		const UString &archivePath = arcPaths[i];
+		
+		UString outputPath = arcPaths[i];
+		outputPath.Replace(L'\\', L'/'); // linux and windows consistent
+		const UString archiveName = StripFile(outputPath);
+
+		g_StdOut << "Outputting into : " << outputPath << endl;
 
 		UInt64 arcPackSize = 0;
 		if (!stdInMode)
 		{
 			NFile::NFind::CFileInfoW fi;
-			if (!fi.Find(archiveName) || fi.IsDir())
+			if (!fi.Find(archivePath) || fi.IsDir())
 			{
 				SHOW_ERROR("is not a file.");
 				continue;
@@ -59,7 +85,7 @@ HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 			arcPackSize = fi.Size;
 		}
 
-		g_StdOut << endl << "Exploding : " << archiveName << endl << endl;
+		g_StdOut << endl << "Exploding : " << archivePath << endl << endl;
 
 		CArchiveLink archiveLink;
 
@@ -70,13 +96,13 @@ HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 		openCallback.PasswordIsDefined = false;
 #endif
 
-		HRESULT result = archiveLink.Open2(codecs, formatIndices, stdInMode, NULL, archiveName, &openCallback);
+		HRESULT result = archiveLink.Open2(codecs, formatIndices, stdInMode, NULL, archivePath, &openCallback);
 	
 		if (result != S_OK)
 		{
 			if (result == E_ABORT)
 				return result;
-			g_StdOut << endl << "Error: " << archiveName << ": ";
+			g_StdOut << endl << "Error: " << archivePath << ": ";
 			if (result == S_FALSE)
 				g_StdOut << "Can not open file as archive";
 			else if (result == E_OUTOFMEMORY)
@@ -134,7 +160,7 @@ HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 		// not a fan of having to reopen the file..
 		CInFileStream* _inStream = new CInFileStream;
 		CMyComPtr<CInFileStream> inStream(_inStream);
-		if (!inStream->Open(archiveName)) {
+		if (!inStream->Open(archivePath)) {
 			SHOW_ERROR("Cannot be opened for reading.");
 			continue;
 		}	
@@ -154,8 +180,38 @@ HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 			UInt64 folderLen = folderSizes[x];
 			UInt64 folderStartPackPos = folderPositions[x];
 			
+			UString relativeFilePath; // relative to archive
+			UString fileName;
+
+			// each exploded archive will only have a single folder.
+			if (exploded[x].Files.Size() > 0) {
+				relativeFilePath = exploded[x].Files[0].Name;
+				if (!exploded[x].Files[0].IsDir) {
+					fileName = StripFile(relativeFilePath);
+				}
+			}
+
+			//g_StdOut << "Relative path " << relativeFilePath << endl;
+			//g_StdOut << "Archive " << archivePath << endl;
+
+			UString folderOutPath = outputPath + relativeFilePath;
+			if (relativeFilePath.Length() != 0) {
+				bool b = NWindows::NFile::NDirectory::CreateComplexDirectory(folderOutPath);
+				if (!b) g_StdOut << "Couldn't create directory " << folderOutPath << endl;
+				//relativeFilePath.Insert(folderOutPath.Length(), L'/');
+			}
+
 			std::wstringstream sstream;
-			sstream << archiveName.GetBuffer() << L"_folder_" << x << ".7z";
+			sstream << outputPath.GetBuffer() << relativeFilePath.GetBuffer();
+			
+			if (exploded[x].Files.Size() == 1) // can use file names
+				sstream << fileName.GetBuffer();
+			else // use folder as name 
+				sstream << archiveName.GetBuffer() << L"_folder_" << x;
+			sstream << ".7z";
+			
+			g_StdOut << "Saving as '" << sstream.str().c_str() << "'" << endl;
+
 			COutFileStream* _outstream = new COutFileStream;
 			CMyComPtr<COutFileStream> outstream(_outstream);
 			outstream->Create(sstream.str().c_str(), true);
