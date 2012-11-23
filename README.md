@@ -7,4 +7,5 @@ Modified version of p7zip which supports archive exploding, that is, creating a 
 
 Use command line p for exPloding.
 
-Creates an archive falled <archivename>.7z_folder<x>.7z for each folder, ie hello.7z_folder0.7z. Doesn't create any directories for them yet though.
+If a block only has a single file, the resulting 7z archive is named according to the contained file.
+If there are various files in the block, the resulting archive is given a generic name of type: original_archive.7z_folderx.7z
