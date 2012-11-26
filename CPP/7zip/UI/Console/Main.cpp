@@ -514,6 +514,7 @@ int Main2(
 			options.StdInMode,
 			options.ArchivePathsSorted,
 			options.ArchivePathsFullSorted,
+			options.OutputDir,
 			numErrors);
 		if (numErrors > 0) 
 		{
