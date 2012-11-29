@@ -92,6 +92,8 @@ struct CArchiveCommandLineOptions
   UInt32 DictionarySize;
   UString Method;
 
+  // Explode
+  UString explodeDepth;
 
   CArchiveCommandLineOptions(): StdInMode(false), StdOutMode(false) {};
 };

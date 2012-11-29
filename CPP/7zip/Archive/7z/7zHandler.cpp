@@ -52,21 +52,281 @@ STDMETHODIMP CHandler::GetNumberOfItems(UInt32 *numItems)
   return S_OK;
 }
 
-// Explode the database into one database per folder.
-void CHandler::Explode(CObjectVector<CArchiveDatabase>& exploded,
-	CRecordVector<UInt64>& folderSizes, 
-	CRecordVector<UInt64>& folderPositions)
+// todo: move elsewhere
+// 
+
+class PathParser
 {
-	for (int folderIndex = 0; folderIndex < _db.Folders.Size(); folderIndex++)
+private:
+	const UString* path;
+	int slashpos, nextpos;
+
+public:
+	// path should remain valid for duration of this objects lifetime
+	PathParser(const UString* path) : path(path), slashpos(0), nextpos(-1)
+	{
+	}
+
+	// Find the next directory in the path (starting from the root)
+	// Returns false if there is no directory left.
+	bool GetNextDirectory(UString& dir)
+	{
+		if (slashpos == -1) return false;
+
+		bool has_next = true;
+		nextpos = path->Find('/', slashpos);
+		if (nextpos == -1) {
+			nextpos = path->Length();
+			has_next = false;				
+		} 
+		if (nextpos == slashpos) return false;
+		dir = path->Mid(slashpos, nextpos-slashpos);
+
+		slashpos = has_next ? nextpos + 1 : -1;
+		return true;
+	}
+};
+
+class CSzTree /*: public CSzTree*/
+{
+private:
+	CRecordVector<unsigned int> blocks;
+	CRecordVector<CSzTree*> leaves; // owned by this obj
+	UString key;
+
+	bool UpdateIfEmpty(const UString& key)
+	{
+		if (IsEmpty()) {
+			this->key = key;
+			return true;
+		}
+		return false;
+	}
+
+	// Checks if the directory exists AT THIS LEVEL only.
+	bool FindDirectory(const UString& dir, CSzTree** found)
+	{
+		// int indx = leaves.FindInSorted(tofind);
+		// if (indx == -1) {*found = 0; return false;} 
+		for (int x = 0; x < leaves.Size(); x++) {
+			if (!leaves[x]->key.Compare(dir)){
+				*found = leaves[x];
+				return true;
+			}
+		}
+		return false;
+	}
+
+	CSzTree& AddDirCheckExist(const UString& key)
+	{
+		CSzTree* found;
+		if (FindDirectory(key, &found)) return *found;
+		leaves.Add(new CSzTree(key));
+		return *leaves.Back();
+	}
+
+	// Add a directory at the current level. If one already exists
+	// it is returned.
+	CSzTree& AddSimpleDirectory(const UString& key)
+	{
+		if (UpdateIfEmpty(key)) return *this;
+		return AddDirCheckExist(key);
+	}
+
+protected:
+
+public:
+	CSzTree(const UString& key) : key(key) {}
+
+	virtual ~CSzTree() {
+		for (int i = 0; i < leaves.Size(); i++)
+			delete leaves[i];
+		leaves.Clear();
+	}
+
+	bool IsEmpty() const 
+	{
+		return key.Length() == 0;
+	}
+
+	// Add a directory which may contain other directories, which should also 
+	// get created. 
+	// The value returned is the deepest nested directory created (ie where
+	// a file in this path should go).
+	CSzTree& AddDirectory(const UString& path)
+	{
+		PathParser p(&path);
+		CSzTree* leaf = this;
+		UString dir;
+		while (p.GetNextDirectory(dir))
+			leaf = &leaf->AddSimpleDirectory(dir);
+		return *leaf;
+	}
+
+	// Find a directory relative to 'this'
+	bool FindRelativeDirectory(const UString& relative_dir, CSzTree** out)
+	{
+		PathParser p(&relative_dir);
+		CSzTree* leaf = this;
+		UString dir;
+		while (p.GetNextDirectory(dir)) {
+			if (!leaf->FindDirectory(dir, &leaf)) return false;
+		}
+		*out = leaf;
+		return true;
+	}
+
+	bool GetLeaf(int i, CSzTree** leaf)
+	{
+		if (i >= leaves.Size()) return false;
+		*leaf = leaves[i];
+		return true;
+	}
+	
+	int GetNumberOfLeaves()
+	{
+		return leaves.Size();
+	}
+
+	void Print(int depth = 0)
+	{
+		UString prefix;
+		for (int i = 0; i < depth; i++)
+			prefix += L" ";
+
+		wprintf(L"%s%s [%i blocks]\n", prefix.GetBuffer(), key.GetBuffer(),
+			blocks.Size());
+
+		for (int x = 0; x < leaves.Size(); x++)
+			leaves[x]->Print(depth+1);
+	}
+
+	void AddBlock(unsigned int folderIndex)
+	{
+		blocks.AddToUniqueSorted(folderIndex);
+	}
+
+	unsigned int GetBlock(int index)
+	{
+		if (index >= blocks.Size()) return -1;
+		return blocks[index];
+	}
+};
+
+void CHandler::AddBlocksToDatabase(szExplodeData& out, CSzTree* tree)
+{
+	int blockIndex = 0;
+	unsigned int block = 0;
+	while ((block = tree->GetBlock(blockIndex++)) != -1) {
+		AddFolderToDatabase(_db, block, out);
+	}
+}
+
+void CHandler::Explode(CSzTree* tree, CObjectVector<szExplodeData>& exploded, 
+	UInt64 maxdepth, szExplodeData* szExplode, UInt64 curDepth)
+{
+	if (maxdepth == 0 || curDepth < maxdepth) {
+		// explode tree into an archive per block then explode its children
+		int blockIndex = 0;
+		unsigned int block = 0;
+		while ((block = tree->GetBlock(blockIndex++)) != -1) {
+			szExplodeData f;
+			AddFolderToDatabase(_db, block, f);
+			exploded.Add(f);
+		}
+		
+		int i = 0;
+		CSzTree* subtree;
+		while (tree->GetLeaf(i++, &subtree)) {
+			Explode(subtree, exploded, maxdepth, NULL, curDepth + 1);
+		}
+
+	} else {
+		// put all blocks in tree, and all of its children, into a single archive
+		szExplodeData explode;
+		bool top_level = false;
+		if (!szExplode) {
+			szExplode = &explode;
+			top_level = true;
+		}
+		AddBlocksToDatabase(*szExplode, tree);
+
+		int i = 0;
+		CSzTree* subtree;
+		while (tree->GetLeaf(i++, &subtree)) {
+			Explode(subtree, exploded, maxdepth, szExplode, curDepth + 1);
+		}
+		if (top_level) exploded.Add(*szExplode);
+	}
+}
+
+void CHandler::AddFolderToDatabase(CArchiveDatabaseEx& input, int folderIndex,
+						 szExplodeData& out)
+{
+	CFolder& folder = input.Folders[folderIndex];
+	out.folderSizes.Add(_db.GetFolderFullPackSize(folderIndex));
+	out.folderPositions.Add(_db.GetFolderStreamPos(folderIndex, 0));
+
+	out.newDatabase.Folders.Add(folder);
+
+	out.newDatabase.NumUnpackStreamsVector.Add(
+		input.NumUnpackStreamsVector[folderIndex]);
+
+	// i think this is right
+	for (int packSizes = 0; packSizes < folder.PackStreams.Size(); packSizes++)
+		out.newDatabase.PackSizes.Add(input.GetFolderPackStreamSize(folderIndex, packSizes));
+
+	//newDatabase.PackSizes.Add(folderLen); 
+	out.newDatabase.PackCRCs.Add(folder.UnpackCRC);
+	out.newDatabase.PackCRCsDefined.Add(folder.UnpackCRCDefined);
+
+	for (int x = 0; x < input.Files.Size(); x++) { // should just do this once per db, not folder
+		UInt64 _folderIndex = input.FileIndexToFolderIndexMap[x];
+		if (_folderIndex == folderIndex) {
+			CFileItem file;
+			CFileItem2 finfo;
+			input.GetFile(x, file, finfo);
+			out.newDatabase.AddFile(file, finfo);
+		}
+	}
+}
+
+// Explode the database into one database per folder.
+void CHandler::Explode(CObjectVector<szExplodeData>& exploded, const UInt64 maxDepth)
+{
+	wprintf(L"Archive has %i blocks\n", _db.Folders.Size());
+	// Parse the archive into its directory tree and associate folders (blocks)
+	// with the correct level.
+	CSzTree archiveStructure(L"/");
+	for (int x = 0; x < _db.Files.Size(); x++)
+	{
+		CFileItem file = _db.Files[x];		
+		UString dir = L"/";
+		// todo: should use function defined in Explode.cpp, will do when refactoring
+		if (file.IsDir) dir = file.Name;
+		else {
+			int last = file.Name.ReverseFind(L'/');
+			if (last != -1) dir = file.Name.Left(last);	
+		}
+		 
+		CSzTree& structuredDir = archiveStructure.AddDirectory(dir);
+		unsigned int folderIndex = _db.FileIndexToFolderIndexMap[x];
+		if (!file.IsDir) structuredDir.AddBlock(folderIndex);
+	}
+	archiveStructure.Print();	
+	Explode(&archiveStructure, exploded, maxDepth);
+	
+	/*for (int folderIndex = 0; folderIndex < _db.Folders.Size(); folderIndex++)
 	{
 		CFolder& folder = _db.Folders[folderIndex];
 		folderSizes.Add(_db.GetFolderFullPackSize(folderIndex));
 		folderPositions.Add(_db.GetFolderStreamPos(folderIndex, 0));
 
 		CArchiveDatabase newDatabase;
-		newDatabase.Folders.Add(folder);
+		newDatabase.Folders.Add(folder); // not copy constructed
+
 		newDatabase.NumUnpackStreamsVector.Add(
-			_db.NumUnpackStreamsVector[folderIndex]); // number of files (i think)
+			_db.NumUnpackStreamsVector[folderIndex]);
 
 		// i think this is right
 		for (int packSizes = 0; packSizes < folder.PackStreams.Size(); packSizes++)
@@ -85,10 +345,9 @@ void CHandler::Explode(CObjectVector<CArchiveDatabase>& exploded,
 				newDatabase.AddFile(file, finfo);
 			}
 		}
-		exploded.Add(newDatabase);
-	}
+		exploded.Add(newDatabase); // copy constructed
+	}*/
 }
-
 #ifdef _SFX
 
 IMP_IInArchive_ArcProps_NO

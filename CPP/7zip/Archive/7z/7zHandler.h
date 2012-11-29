@@ -17,7 +17,6 @@
 
 namespace NArchive {
 namespace N7z {
-
 #ifndef __7Z_SET_PROPERTIES
 
 #ifdef EXTRACT_ONLY
@@ -29,8 +28,13 @@ namespace N7z {
 #endif
 
 #endif
-
-
+	// todo: refactor
+	class CSzTree;
+	struct szExplodeData
+	{
+		CArchiveDatabase newDatabase;
+		CRecordVector<UInt64> folderSizes, folderPositions;
+	};
 class CHandler:
   #ifndef EXTRACT_ONLY
   public NArchive::COutHandler,
@@ -70,15 +74,25 @@ public:
   DECL_ISetCompressCodecsInfo
 
   CHandler();
-  
-    // Explode the database into one database per folder.
-  void Explode(CObjectVector<CArchiveDatabase>& exploded,
-	  CRecordVector<UInt64>& folderSizes, 
-	  CRecordVector<UInt64>& folderPositions);
 
+  // Explode the database into one database per folder.
+  void Explode(CObjectVector<szExplodeData>& exploded, const UInt64 maxDepth);
+
+private:
+	
+	void Explode(CSzTree* tree, CObjectVector<szExplodeData>& exploded, 
+		UInt64 maxdepth, 
+		szExplodeData* szExplode = NULL, UInt64 curDepth = 0);
+
+	void AddFolderToDatabase(CArchiveDatabaseEx& input, int folderIndex,
+		szExplodeData& out);
+	void AddBlocksToDatabase(szExplodeData& out, CSzTree* tree);
+
+  
 private:
   CMyComPtr<IInStream> _inStream;
   NArchive::N7z::CArchiveDatabaseEx _db;
+  
   #ifndef _NO_CRYPTO
   bool _passwordIsDefined;
   #endif

@@ -88,6 +88,7 @@ static const char *kHelpString =
     "  -ai[r[-|0]]{@listfile|!wildcard}: Include archives\n"
     "  -ax[r[-|0]]{@listfile|!wildcard}: eXclude archives\n"
     "  -bd: Disable percentage indicator\n"
+	"  -d{Depth}: The maximum directory depth to explode to.\n"
     "  -i[r[-|0]]{@listfile|!wildcard}: Include filenames\n"
     "  -m{Parameters}: set compression Method\n"
     "  -o{Directory}: set Output directory\n"
@@ -507,6 +508,8 @@ int Main2(
     }
 	else if (options.Command.CommandType == NCommandType::kExplode)
 	{
+		// depth of 0 means unlimited
+		UInt64 depth = ConvertStringToUInt64(options.explodeDepth.GetBuffer(), NULL);
 		UInt64 numErrors = 0;
 		HRESULT result = ExplodeArchives(
 			codecs, 
@@ -515,6 +518,7 @@ int Main2(
 			options.ArchivePathsSorted,
 			options.ArchivePathsFullSorted,
 			options.OutputDir,
+			depth,
 			numErrors);
 		if (numErrors > 0) 
 		{

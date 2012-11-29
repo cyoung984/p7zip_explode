@@ -39,22 +39,36 @@ static HRESULT WriteRange(IInStream *inStream, ISequentialOutStream *outStream,
 	return (copyCoderSpec->TotalSize == size ? S_OK : E_FAIL);
 }
 
-// Strip the file name from the full path (if present) and append trailing /
-UString StripFile(UString& path, bool remove=true) 
+// Strip the file name from the full path, keeping the trailing /
+void StripFile(UString& path) 
 {
-	UString file;
 	// remove file name
 	int last = path.ReverseFind(L'/');
 	if (last != -1) {
 		int namelen = path.Length() - last;
-
-		file = path.Right(namelen - 1);		
-		if (remove)	path.Delete(last + 1, namelen - 1);
+		path.Delete(last + 1, namelen - 1);
 	} else {// file not directory
-		file = path;
-		if (remove)	path.Empty();
+		path.Empty();
 	}
+}
+
+// Get the file name from a path
+UString GetFileFromPath(const UString& path)
+{
+	UString file;
+	int last = path.ReverseFind(L'/');
+	if (last != -1) {
+		int namelen = path.Length() - last;
+		file = path.Right(namelen - 1);	
+	} else file = path;
 	return file;
+}
+
+// Make sure the path is terminated with only a single /
+void FixPathFormat(UString& path)
+{
+	while (path.Back() == L'/') path.DeleteBack();
+	path += L'/';
 }
 
 
@@ -63,19 +77,21 @@ UString StripFile(UString& path, bool remove=true)
 HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 	bool stdInMode,
 	UStringVector &arcPaths, UStringVector &arcPathsFull,
-	const UString& outputPath,
-	UInt64 &numErrors)
+	UString& outputPath, UInt64 maxDepth, UInt64 &numErrors)
 {
 	int numArcs = arcPaths.Size();
 	for (int i = 0; i < numArcs; i++)
 	{
-		const UString &archivePath = arcPaths[i];
+		UString archivePath = arcPaths[i];
 		
 		/*UString outputPath = arcPaths[i];
 		outputPath.Replace(L'\\', L'/'); // linux and windows consistent
 		const UString archiveName = StripFile(outputPath);
 		outputPath.Empty();*/
-		const UString archiveName = StripFile((UString&)archivePath, false);
+		archivePath.Replace(L'\\', L'/'); // linux, windows and archive consistent
+		outputPath.Replace(L'\\', L'/'); 
+		FixPathFormat(outputPath);
+		const UString archiveName = GetFileFromPath(archivePath);
 
 		g_StdOut << "Outputting into : " << outputPath << endl;
 
@@ -156,9 +172,7 @@ HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 			continue;
 		}
 
-		// should probably change this and add explode to IInArchive
-		// and implement there, but then I need to add dummy handlers
-		// for other formats because only 7z is supported
+		// Only 7z is supported, and it's been checked
 		using namespace NArchive::N7z;
 		IInArchive* inArc = archiveLink.GetArchive();
 		CHandler* szHandler = (CHandler*)inArc;
@@ -172,28 +186,41 @@ HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 		}	
 
 		// Explode the archive into each folder
-		CObjectVector<CArchiveDatabase> exploded;
-		CRecordVector<UInt64> folderSizes, folderPositions;
-		szHandler->Explode(exploded, folderSizes, folderPositions);
+		CObjectVector<szExplodeData> exploded;
+		szHandler->Explode(exploded, maxDepth);
 	
 		if (exploded.Size() == 0) {
 			SHOW_ERROR("Empty archive!");
 			continue;
 		}
+
+		// should make a struct that gets passed to Explode.. 
+		// something like
+		/*
+		 * struct a {
+		 *	CArchiveDatabase newDatabase;
+		 *	CRecordVector<UInt64> folderSizes, folderPositions	
+		 * };
+		 * CObjectVector<a> exploded;
+		 * szHandler->Explode(exploded);
+		 */
 		
 		// Save each folder as a new 7z archive
-		for (int x = 0; x < exploded.Size(); x++) {
-			UInt64 folderLen = folderSizes[x];
-			UInt64 folderStartPackPos = folderPositions[x];
-			
+		for (int x = 0; x < exploded.Size(); x++) {		
 			UString relativeFilePath; // relative to archive
 			UString fileName;
+			CArchiveDatabase& newDatabase = exploded[x].newDatabase;
+			szExplodeData& explodeData = exploded[x];
 
 			// each exploded archive will only have a single folder.
-			if (exploded[x].Files.Size() > 0) {
-				relativeFilePath = exploded[x].Files[0].Name;
-				if (!exploded[x].Files[0].IsDir) {
-					fileName = StripFile(relativeFilePath);
+			// no longer true. need to make sure the selected file
+			// is the highest in the dir tree. could make 7zhandler
+			// give us this info i guess.
+			if (newDatabase.Files.Size() > 0) {
+				relativeFilePath = newDatabase.Files[0].Name;
+				if (!newDatabase.Files[0].IsDir) {
+					fileName = GetFileFromPath(relativeFilePath);
+					StripFile(relativeFilePath);
 				}
 			}
 
@@ -208,9 +235,9 @@ HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 			}
 
 			std::wstringstream sstream;
-			sstream << outputPath.GetBuffer() << relativeFilePath.GetBuffer();
+			sstream << folderOutPath.GetBuffer();
 			
-			if (exploded[x].Files.Size() == 1) // can use file names
+			if (newDatabase.Files.Size() == 1) // can use file names
 				sstream << fileName.GetBuffer();
 			else // use folder as name 
 				sstream << archiveName.GetBuffer() << L"_folder_" << x;
@@ -226,9 +253,16 @@ HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 			out.Create(outstream, false);
 			out.SkipPrefixArchiveHeader();
 	
-			// write actual data
-			RINOK(WriteRange(inStream, out.SeqStream, 
-			folderStartPackPos, folderLen, NULL));
+			for (int folderIndex = 0; folderIndex < newDatabase.Folders.Size(); 
+				folderIndex++)
+			{
+				UInt64 folderLen = explodeData.folderSizes[folderIndex];
+				UInt64 folderStartPackPos = explodeData.folderPositions[folderIndex];
+
+				// write actual data
+				RINOK(WriteRange(inStream, out.SeqStream, 
+					folderStartPackPos, folderLen, NULL));
+			}			
 
 			CCompressionMethodMode method, headerMethod;
 			szHandler->SetCompressionMethod(method, headerMethod);
@@ -236,16 +270,16 @@ HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 			CHeaderOptions headerOptions;
 			headerOptions.CompressMainHeader = true;
 
-			out.WriteDatabase(exploded[x], &headerMethod, headerOptions);
+			out.WriteDatabase(newDatabase, &headerMethod, headerOptions);
 			out.Close();
 
-#ifdef ENV_UNIX
+/*#ifdef ENV_UNIX
 			// Create a symlink for each file in the folder.
 			// This makes it seem as though each file is individually accessible.
-			for (int fileIndex = 0; fileIndex < exploded[x].Files.Size(); fileIndex++) {
+			for (int fileIndex = 0; fileIndex < newDatabase.Files.Size(); fileIndex++) {
 				AString oldfile, newfile;
 				UString woldfile = sstream.str().c_str();
-				UString wnewfile = outputPath + relativeFilePath + exploded[x].Files[fileIndex].Name + L".7z";
+				UString wnewfile = outputPath + relativeFilePath + newDatabase.Files[fileIndex].Name + L".7z";
 				ConvertUnicodeToUTF8(woldfile, oldfile);
 				ConvertUnicodeToUTF8(wnewfile, newfile);
 				const char* link_to = oldfile.GetBuffer();
@@ -262,7 +296,7 @@ HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 					
 				}
 			}
-#endif
+#endif*/
 		}		
 
 		archiveLink.Close(); // not needed but oh well

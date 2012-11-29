@@ -8,9 +8,8 @@
 
 HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 	bool stdInMode,
-	UStringVector &archivePaths, UStringVector &archivePathsFull,
-	const UString& outputPath,
-	UInt64 &errors);
+	UStringVector &arcPaths, UStringVector &arcPathsFull,
+	UString& outputPath, UInt64 maxDepth, UInt64 &numErrors);
 
 #endif
 
