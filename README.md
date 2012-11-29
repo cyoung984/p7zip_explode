@@ -19,4 +19,4 @@ output in p7zip_explode/bin
 Usage example
 ./7za p archive.7z
 
-Outputs relative to the archive at the moment. 
+Outputs relative to the working directory at the moment. Use -o switch to change. 
