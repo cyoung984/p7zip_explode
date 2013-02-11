@@ -260,10 +260,10 @@ void CHandler::Explode(CSzTree* tree, CObjectVector<szExplodeData>& exploded,
 	}
 }
 
-void CHandler::AddFolderToDatabase(CArchiveDatabaseEx& input, int folderIndex,
+void CHandler::AddFolderToDatabase(const CArchiveDatabaseEx& input, int folderIndex,
 						 szExplodeData& out)
 {
-	CFolder& folder = input.Folders[folderIndex];
+	const CFolder& folder = input.Folders[folderIndex];
 	out.folderSizes.Add(_db.GetFolderFullPackSize(folderIndex));
 	out.folderPositions.Add(_db.GetFolderStreamPos(folderIndex, 0));
 
@@ -315,38 +315,6 @@ void CHandler::Explode(CObjectVector<szExplodeData>& exploded, const UInt64 maxD
 	}
 	archiveStructure.Print();	
 	Explode(&archiveStructure, exploded, maxDepth);
-	
-	/*for (int folderIndex = 0; folderIndex < _db.Folders.Size(); folderIndex++)
-	{
-		CFolder& folder = _db.Folders[folderIndex];
-		folderSizes.Add(_db.GetFolderFullPackSize(folderIndex));
-		folderPositions.Add(_db.GetFolderStreamPos(folderIndex, 0));
-
-		CArchiveDatabase newDatabase;
-		newDatabase.Folders.Add(folder); // not copy constructed
-
-		newDatabase.NumUnpackStreamsVector.Add(
-			_db.NumUnpackStreamsVector[folderIndex]);
-
-		// i think this is right
-		for (int packSizes = 0; packSizes < folder.PackStreams.Size(); packSizes++)
-			newDatabase.PackSizes.Add(_db.GetFolderPackStreamSize(folderIndex, packSizes));
-
-		//newDatabase.PackSizes.Add(folderLen); 
-		newDatabase.PackCRCs.Add(folder.UnpackCRC);
-		newDatabase.PackCRCsDefined.Add(folder.UnpackCRCDefined);
-
-		for (int x = 0; x < _db.Files.Size(); x++) { // should just do this once per db, not folder
-			UInt64 _folderIndex = _db.FileIndexToFolderIndexMap[x];
-			if (_folderIndex == folderIndex) {
-				CFileItem file;
-				CFileItem2 finfo;
-				_db.GetFile(x, file, finfo);
-				newDatabase.AddFile(file, finfo);
-			}
-		}
-		exploded.Add(newDatabase); // copy constructed
-	}*/
 }
 #ifdef _SFX
 

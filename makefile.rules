@@ -24,6 +24,8 @@ List.o : ../../UI/Console/List.cpp
 	$(CXX) $(CXXFLAGS) ../../UI/Console/List.cpp
 Explode.o : ../../UI/Console/Explode.cpp
 	$(CXX) $(CXXFLAGS) ../../UI/Console/Explode.cpp
+DataChecksum.o : ../../UI/Console/Datachecksum.cpp
+	$(CXX) $(CXXFLAGS) ../../UI/Console/Datachecksum.cpp
 MainAr.o : ../../UI/Console/MainAr.cpp
 	$(CXX) $(CXXFLAGS) ../../UI/Console/MainAr.cpp
 OpenCallbackConsole.o : ../../UI/Console/OpenCallbackConsole.cpp

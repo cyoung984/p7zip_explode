@@ -167,7 +167,8 @@ static const CCommandForm g_CommandForms[] =
   { L"L", false },
   { L"B", false },
   { L"I", false },
-  { L"P", false }
+  { L"P", false },
+  { L"C", false}
 };
 
 static const int kNumCommandForms = sizeof(g_CommandForms) /  sizeof(g_CommandForms[0]);
@@ -775,7 +776,8 @@ void CArchiveCommandLineParser::Parse2(CArchiveCommandLineOptions &options)
 
   bool isExtractGroupCommand = options.Command.IsFromExtractGroup();
   bool isExtractOrList = isExtractGroupCommand || options.Command.CommandType == NCommandType::kList
-	  || options.Command.CommandType == NCommandType::kExplode; // want explode here too
+	  || options.Command.CommandType == NCommandType::kExplode
+	  || options.Command.CommandType == NCommandType::kDataChecksum; // want explode here too
 
   if (isExtractOrList && options.StdInMode)
     thereIsArchiveName = false;
@@ -902,7 +904,8 @@ void CArchiveCommandLineParser::Parse2(CArchiveCommandLineOptions &options)
     
     }
     
-    if (isExtractGroupCommand || options.Command.CommandType == NCommandType::kExplode)
+    if (isExtractGroupCommand || options.Command.CommandType == NCommandType::kExplode
+	|| options.Command.CommandType == NCommandType::kDataChecksum)
     {
       SetMethodOptions(parser, options.ExtractProperties);
       if (options.StdOutMode && options.IsStdOutTerminal && options.IsStdErrTerminal)

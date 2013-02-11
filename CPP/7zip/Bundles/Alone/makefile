@@ -18,6 +18,7 @@ CONSOLE_OBJS = \
   ExtractCallbackConsole.o \
   List.o \
   Explode.o \
+  DataChecksum.o \
   Main.o \
   MainAr.o \
   OpenCallbackConsole.o \
@@ -274,3 +275,4 @@ mySplitCommandLine.o \
 
 include ../../../../makefile.glb
 
+# DO NOT DELETE

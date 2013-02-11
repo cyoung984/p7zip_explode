@@ -1,8 +1,6 @@
 PROG=../../../../bin/7z$(BINSUFFIX)
 
 LOCAL_FLAGS=\
-  -DEXTERNAL_LZMA \
-  -DEXTERNAL_CODECS \
   -DBREAK_HANDLER \
   -DUNICODE -D_UNICODE
 
@@ -19,6 +17,7 @@ CONSOLE_OBJS = \
   BenchCon.o \
   List.o \
   Explode.o \
+  DataChecksum.o \
   Main.o \
   MainAr.o \
   OpenCallbackConsole.o \

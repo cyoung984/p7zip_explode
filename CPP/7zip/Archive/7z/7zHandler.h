@@ -77,14 +77,14 @@ public:
 
   // Explode the database into one database per folder.
   void Explode(CObjectVector<szExplodeData>& exploded, const UInt64 maxDepth);
-
+  NArchive::N7z::CArchiveDatabaseEx GetArchiveDatabase() { return _db; }
 private:
 	
 	void Explode(CSzTree* tree, CObjectVector<szExplodeData>& exploded, 
 		UInt64 maxdepth, 
 		szExplodeData* szExplode = NULL, UInt64 curDepth = 0);
 
-	void AddFolderToDatabase(CArchiveDatabaseEx& input, int folderIndex,
+	void AddFolderToDatabase(const CArchiveDatabaseEx& input, int folderIndex,
 		szExplodeData& out);
 	void AddBlocksToDatabase(szExplodeData& out, CSzTree* tree);
 

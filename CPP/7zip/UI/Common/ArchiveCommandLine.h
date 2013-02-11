@@ -25,7 +25,8 @@ namespace NCommandType { enum EEnum
   kList,
   kBenchmark,
   kInfo,
-  kExplode
+  kExplode,
+  kDataChecksum
 };}
 
 namespace NRecursedType { enum EEnum

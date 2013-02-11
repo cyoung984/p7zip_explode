@@ -244,6 +244,7 @@ Main.o: ../../UI/Console/Main.cpp ../../../myWindows/StdAfx.h \
  ../../UI/Console/../../Archive/IArchive.h \
  ../../UI/Console/../Common/ArchiveExtractCallback.h \
  ../../UI/Console/List.h ../../UI/Console/../Common/LoadCodecs.h \
+ ../../UI/Console/Explode.h ../../UI/Console/DataChecksum.h \
  ../../UI/Console/OpenCallbackConsole.h \
  ../../UI/Console/../Common/ArchiveOpenCallback.h \
  ../../UI/Console/UpdateCallbackConsole.h \

@@ -1,5 +1,4 @@
 #include "StdAfx.h"
-#include <sstream>
 
 #include "Explode.h"
 #include "Windows/Error.h"
@@ -13,11 +12,8 @@
 #include "../../Common/LimitedStreams.h"
 #include "../../Compress/CopyCoder.h"
 #include "../../../Windows/FileDir.h"
-#ifdef ENV_UNIX
-#include <unistd.h>
-#include <errno.h>
-#include "../../../Common/UTFConvert.h"
-#endif
+#include "../../Archive/Common/OutStreamWithCRC.h"
+#include "../../../Common/IntToString.h"
 
 using namespace NWindows;
 
@@ -65,10 +61,11 @@ UString GetFileFromPath(const UString& path)
 }
 
 // Make sure the path is terminated with only a single /
+// If the path would be empty, an empty string is returned
 void FixPathFormat(UString& path)
 {
 	while (path.Back() == L'/') path.DeleteBack();
-	path += L'/';
+	if (path.Length() != 0)  path += L'/';
 }
 
 
@@ -83,11 +80,6 @@ HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 	for (int i = 0; i < numArcs; i++)
 	{
 		UString archivePath = arcPaths[i];
-		
-		/*UString outputPath = arcPaths[i];
-		outputPath.Replace(L'\\', L'/'); // linux and windows consistent
-		const UString archiveName = StripFile(outputPath);
-		outputPath.Empty();*/
 		archivePath.Replace(L'\\', L'/'); // linux, windows and archive consistent
 		outputPath.Replace(L'\\', L'/'); 
 		FixPathFormat(outputPath);
@@ -124,20 +116,19 @@ HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 		{
 			if (result == E_ABORT)
 				return result;
-			g_StdOut << endl << "Error: " << archivePath << ": ";
-			if (result == S_FALSE)
-				g_StdOut << "Can not open file as archive";
-			else if (result == E_OUTOFMEMORY)
-				g_StdOut << "Can't allocate required memory";
-			else
-				g_StdOut << NError::MyFormatMessage(result);
-			g_StdOut << endl;
-			numErrors++;
+			else if (result == S_FALSE) {
+				SHOW_ERROR("Can not open file as archive");
+			} else if (result == E_OUTOFMEMORY) {
+				SHOW_ERROR("Can't allocate required memory");
+			}
+			else {
+				SHOW_ERROR(NError::MyFormatMessage(result));
+			}
 			continue;
 		}
 
 		// remove other files names if multi-volume
-		if (!stdInMode) {
+	/*	if (!stdInMode) {
 			for (int v = 0; v < archiveLink.VolumePaths.Size(); v++)
 			{
 				int index = arcPathsFull.FindInSorted(archiveLink.VolumePaths[v]);
@@ -148,9 +139,9 @@ HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 					numArcs = arcPaths.Size();
 				}
 			}
-		}
+		}*/
 
-		// don't support multi volume because i have to reopen the stream
+		// multi-volume isn't supported
 		if (archiveLink.VolumePaths.Size() != 1) {
 			SHOW_ERROR("Exploding multi-volume archives isn't supported.");
 			continue;
@@ -193,18 +184,7 @@ HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 			SHOW_ERROR("Empty archive!");
 			continue;
 		}
-
-		// should make a struct that gets passed to Explode.. 
-		// something like
-		/*
-		 * struct a {
-		 *	CArchiveDatabase newDatabase;
-		 *	CRecordVector<UInt64> folderSizes, folderPositions	
-		 * };
-		 * CObjectVector<a> exploded;
-		 * szHandler->Explode(exploded);
-		 */
-		
+				
 		// Save each folder as a new 7z archive
 		for (int x = 0; x < exploded.Size(); x++) {		
 			UString relativeFilePath; // relative to archive
@@ -213,7 +193,7 @@ HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 			szExplodeData& explodeData = exploded[x];
 
 			// each exploded archive will only have a single folder.
-			// no longer true. need to make sure the selected file
+			// update: no longer true. need to make sure the selected file
 			// is the highest in the dir tree. could make 7zhandler
 			// give us this info i guess.
 			if (newDatabase.Files.Size() > 0) {
@@ -224,82 +204,65 @@ HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 				}
 			}
 
-			//g_StdOut << "Relative path " << relativeFilePath << endl;
-			//g_StdOut << "Archive " << archivePath << endl;
-
 			UString folderOutPath = outputPath + relativeFilePath;
 			if (relativeFilePath.Length() != 0) {
 				bool b = NWindows::NFile::NDirectory::CreateComplexDirectory(folderOutPath);
-				if (!b) g_StdOut << "Couldn't create directory " << folderOutPath << endl;
-				//relativeFilePath.Insert(folderOutPath.Length(), L'/');
+				if (!b) { 
+					SHOW_ERROR("Couldn't create directory " << folderOutPath);
+					continue;
+				}
 			}
 
-			std::wstringstream sstream;
-			sstream << folderOutPath.GetBuffer();
-			
+			UString new_archive_file = folderOutPath;			
 			if (newDatabase.Files.Size() == 1) // can use file names
-				sstream << fileName.GetBuffer();
-			else // use folder as name 
-				sstream << archiveName.GetBuffer() << L"_folder_" << x;
-			sstream << ".7z";
+				new_archive_file += fileName;
+			else { // use folder as name 
+				wchar_t folderNumber[32];
+				ConvertUInt32ToString(x, folderNumber);
+				new_archive_file += archiveName + L"_folder_" + folderNumber;			
+			}
+			new_archive_file += L".7z";
 			
-			g_StdOut << "Saving as '" << sstream.str().c_str() << "'" << endl;
+			g_StdOut << "Saving as '" << new_archive_file << "'" << endl;
 
 			COutFileStream* _outstream = new COutFileStream;
 			CMyComPtr<COutFileStream> outstream(_outstream);
-			outstream->Create(sstream.str().c_str(), true);
+			outstream->Create(new_archive_file.GetBuffer(), true);
 
 			COutArchive out;
 			out.Create(outstream, false);
 			out.SkipPrefixArchiveHeader();
+
+			CMyComPtr<COutStreamWithCRC> crcStream(new COutStreamWithCRC());
+			crcStream->Init();
+			crcStream->SetStream(out.SeqStream);
 	
+			// one crc per archive (even if it has multiple blocks)
 			for (int folderIndex = 0; folderIndex < newDatabase.Folders.Size(); 
 				folderIndex++)
 			{
 				UInt64 folderLen = explodeData.folderSizes[folderIndex];
 				UInt64 folderStartPackPos = explodeData.folderPositions[folderIndex];
-
+				
 				// write actual data
-				RINOK(WriteRange(inStream, out.SeqStream, 
+				RINOK(WriteRange(inStream, crcStream/*out.SeqStream*/, 
 					folderStartPackPos, folderLen, NULL));
 			}			
 
 			CCompressionMethodMode method, headerMethod;
 			szHandler->SetCompressionMethod(method, headerMethod);
-
 			CHeaderOptions headerOptions;
 			headerOptions.CompressMainHeader = true;
 
 			out.WriteDatabase(newDatabase, &headerMethod, headerOptions);
 			out.Close();
 
-/*#ifdef ENV_UNIX
-			// Create a symlink for each file in the folder.
-			// This makes it seem as though each file is individually accessible.
-			for (int fileIndex = 0; fileIndex < newDatabase.Files.Size(); fileIndex++) {
-				AString oldfile, newfile;
-				UString woldfile = sstream.str().c_str();
-				UString wnewfile = outputPath + relativeFilePath + newDatabase.Files[fileIndex].Name + L".7z";
-				ConvertUnicodeToUTF8(woldfile, oldfile);
-				ConvertUnicodeToUTF8(wnewfile, newfile);
-				const char* link_to = oldfile.GetBuffer();
-				const char* link_name = newfile.GetBuffer();
-				unlink(link_name);// should ask user
-				//g_StdOut << "Creating symlink to '" << link_to << "' called '" << link_name << "'" << endl;
-				int status = symlink(link_to, link_name);
-				if (status == -1) {
-					AString error = "Couldn't create symlink for '";
-					error += newfile;
-					error += "'";
-					SHOW_ERROR(error);
-					g_StdOut << "Error: " << errno << endl;
-					
-				}
-			}
-#endif*/
+			char crc_str[9];
+			ConvertUInt32ToHexWithZeros(crcStream->GetCRC(), crc_str);
+			g_StdOut << "Compressed block CRC " << crc_str << endl;
 		}		
 
-		archiveLink.Close(); // not needed but oh well
+		archiveLink.Close();
 	}
 
 	return S_OK;

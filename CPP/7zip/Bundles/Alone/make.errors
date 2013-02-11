@@ -1,0 +1,2 @@
+g++: error: DataChecksum.o: No such file or directory
+make: *** [../../../../bin/7za] Error 1
