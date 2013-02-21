@@ -68,11 +68,16 @@ void FixPathFormat(UString& path)
 	if (path.Length() != 0)  path += L'/';
 }
 
-UString GetWindowsSeparated(const UString& path)
+UString GetPlatformPath(const UString& path)
 {
-	UString winPath = path;
-	winPath.Replace('/', '\\');
-	return winPath;
+	UString platform_path = path;
+#ifdef _WIN32
+	platform_path.Replace('/', '\\');
+#else
+	platform_path.Replace('\\', '/');
+#endif
+
+	return platform_path;
 }
 
 // Create a new 7z archive for each folder contained in the archive to be
@@ -198,7 +203,7 @@ HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 			szExplodeData& explodeData = exploded[x];
 
 			UString folderOutPath = outputPath + explodeData.relativePath;
-			bool b = NWindows::NFile::NDirectory::CreateComplexDirectory(folderOutPath);
+			bool b = NWindows::NFile::NDirectory::CreateComplexDirectory(GetPlatformPath(folderOutPath));
 			if (!b) { 
 				SHOW_ERROR("Couldn't create directory " << folderOutPath);
 				continue;
