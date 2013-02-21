@@ -2,6 +2,7 @@
 
 #include "StdAfx.h"
 
+#include "../../../Common/StdOutStream.h"
 #include "../../../../C/CpuArch.h"
 
 #include "../../../Common/ComTry.h"
@@ -21,6 +22,7 @@
 #include "../Common/ParseProperties.h"
 #endif
 #endif
+
 
 using namespace NWindows;
 
@@ -58,12 +60,11 @@ STDMETHODIMP CHandler::GetNumberOfItems(UInt32 *numItems)
 class PathParser
 {
 private:
-	const UString* path;
+	const UString path;
 	int slashpos, nextpos;
 
 public:
-	// path should remain valid for duration of this objects lifetime
-	PathParser(const UString* path) : path(path), slashpos(0), nextpos(-1)
+	PathParser(const UString& path) : path(path), slashpos(0), nextpos(-1)
 	{
 	}
 
@@ -74,13 +75,13 @@ public:
 		if (slashpos == -1) return false;
 
 		bool has_next = true;
-		nextpos = path->Find('/', slashpos);
+		nextpos = path.Find('/', slashpos);
 		if (nextpos == -1) {
-			nextpos = path->Length();
+			nextpos = path.Length();
 			has_next = false;				
 		} 
 		if (nextpos == slashpos) return false;
-		dir = path->Mid(slashpos, nextpos-slashpos);
+		dir = path.Mid(slashpos, nextpos-slashpos);
 
 		slashpos = has_next ? nextpos + 1 : -1;
 		return true;
@@ -93,15 +94,7 @@ private:
 	CRecordVector<unsigned int> blocks;
 	CRecordVector<CSzTree*> leaves; // owned by this obj
 	UString key;
-
-	bool UpdateIfEmpty(const UString& key)
-	{
-		if (IsEmpty()) {
-			this->key = key;
-			return true;
-		}
-		return false;
-	}
+	CSzTree* parent;
 
 	// Checks if the directory exists AT THIS LEVEL only.
 	bool FindDirectory(const UString& dir, CSzTree** found)
@@ -121,7 +114,7 @@ private:
 	{
 		CSzTree* found;
 		if (FindDirectory(key, &found)) return *found;
-		leaves.Add(new CSzTree(key));
+		leaves.Add(new CSzTree(key, this));
 		return *leaves.Back();
 	}
 
@@ -129,24 +122,30 @@ private:
 	// it is returned.
 	CSzTree& AddSimpleDirectory(const UString& key)
 	{
-		if (UpdateIfEmpty(key)) return *this;
 		return AddDirCheckExist(key);
 	}
 
-protected:
+	CSzTree(const CSzTree& other);
+	CSzTree& operator=(const CSzTree& rhs);
 
+	CSzTree(const UString& key, CSzTree* parent) 
+		: key(key), parent(parent)
+	{}
 public:
-	CSzTree(const UString& key) : key(key) {}
+	CSzTree() : parent(NULL)
+	{}
 
-	virtual ~CSzTree() {
-		for (int i = 0; i < leaves.Size(); i++)
-			delete leaves[i];
+	~CSzTree() 
+	{
+		for (int i = 0; i < leaves.Size(); i++)	delete leaves[i];
 		leaves.Clear();
 	}
 
-	bool IsEmpty() const 
-	{
-		return key.Length() == 0;
+	UString GetRelativePath() const {
+		if (!parent) return key;
+		UString path = parent->GetRelativePath();
+		if (parent->parent) path += L"/"; // if not root add separator
+		return path + key;
 	}
 
 	// Add a directory which may contain other directories, which should also 
@@ -155,7 +154,7 @@ public:
 	// a file in this path should go).
 	CSzTree& AddDirectory(const UString& path)
 	{
-		PathParser p(&path);
+		PathParser p(path);
 		CSzTree* leaf = this;
 		UString dir;
 		while (p.GetNextDirectory(dir))
@@ -166,7 +165,7 @@ public:
 	// Find a directory relative to 'this'
 	bool FindRelativeDirectory(const UString& relative_dir, CSzTree** out)
 	{
-		PathParser p(&relative_dir);
+		PathParser p(relative_dir);
 		CSzTree* leaf = this;
 		UString dir;
 		while (p.GetNextDirectory(dir)) {
@@ -183,22 +182,19 @@ public:
 		return true;
 	}
 	
-	int GetNumberOfLeaves()
-	{
-		return leaves.Size();
-	}
-
 	void Print(int depth = 0)
 	{
 		UString prefix;
 		for (int i = 0; i < depth; i++)
 			prefix += L" ";
 
-		wprintf(L"%s%s [%i blocks]\n", prefix.GetBuffer(), key.GetBuffer(),
-			blocks.Size());
+		g_StdOut << prefix << 
+			(key.Length() == 0 ? L'/' : key)
+			<< " [" << blocks.Size() << " blocks]" << endl;
 
 		for (int x = 0; x < leaves.Size(); x++)
 			leaves[x]->Print(depth+1);
+		if (!depth) g_StdOut << endl;
 	}
 
 	void AddBlock(unsigned int folderIndex)
@@ -230,7 +226,7 @@ void CHandler::Explode(CSzTree* tree, CObjectVector<szExplodeData>& exploded,
 		int blockIndex = 0;
 		unsigned int block = 0;
 		while ((block = tree->GetBlock(blockIndex++)) != -1) {
-			szExplodeData f;
+			szExplodeData f(tree->GetRelativePath());
 			AddFolderToDatabase(_db, block, f);
 			exploded.Add(f);
 		}
@@ -243,7 +239,7 @@ void CHandler::Explode(CSzTree* tree, CObjectVector<szExplodeData>& exploded,
 
 	} else {
 		// put all blocks in tree, and all of its children, into a single archive
-		szExplodeData explode;
+		szExplodeData explode(tree->GetRelativePath());
 		bool top_level = false;
 		if (!szExplode) {
 			szExplode = &explode;
@@ -297,21 +293,23 @@ void CHandler::Explode(CObjectVector<szExplodeData>& exploded, const UInt64 maxD
 	wprintf(L"Archive has %i blocks\n", _db.Folders.Size());
 	// Parse the archive into its directory tree and associate folders (blocks)
 	// with the correct level.
-	CSzTree archiveStructure(L"/");
+	CSzTree archiveStructure;
 	for (int x = 0; x < _db.Files.Size(); x++)
 	{
 		CFileItem file = _db.Files[x];		
-		UString dir = L"/";
+		UString dir;
 		// todo: should use function defined in Explode.cpp, will do when refactoring
 		if (file.IsDir) dir = file.Name;
 		else {
 			int last = file.Name.ReverseFind(L'/');
 			if (last != -1) dir = file.Name.Left(last);	
 		}
-		 
-		CSzTree& structuredDir = archiveStructure.AddDirectory(dir);
-		unsigned int folderIndex = _db.FileIndexToFolderIndexMap[x];
-		if (!file.IsDir) structuredDir.AddBlock(folderIndex);
+		
+		if (dir.Length() != 0) {
+			CSzTree& structuredDir = archiveStructure.AddDirectory(dir);
+			unsigned int folderIndex = _db.FileIndexToFolderIndexMap[x];
+			if (!file.IsDir) structuredDir.AddBlock(folderIndex);
+		}
 	}
 	archiveStructure.Print();	
 	Explode(&archiveStructure, exploded, maxDepth);

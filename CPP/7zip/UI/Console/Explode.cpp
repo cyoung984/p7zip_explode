@@ -68,6 +68,12 @@ void FixPathFormat(UString& path)
 	if (path.Length() != 0)  path += L'/';
 }
 
+UString GetWindowsSeparated(const UString& path)
+{
+	UString winPath = path;
+	winPath.Replace('/', '\\');
+	return winPath;
+}
 
 // Create a new 7z archive for each folder contained in the archive to be
 // exploded.
@@ -186,37 +192,26 @@ HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 		}
 				
 		// Save each folder as a new 7z archive
-		for (int x = 0; x < exploded.Size(); x++) {		
-			UString relativeFilePath; // relative to archive
+		for (int x = 0; x < exploded.Size(); x++) {
 			UString fileName;
 			CArchiveDatabase& newDatabase = exploded[x].newDatabase;
 			szExplodeData& explodeData = exploded[x];
 
-			// each exploded archive will only have a single folder.
-			// update: no longer true. need to make sure the selected file
-			// is the highest in the dir tree. could make 7zhandler
-			// give us this info i guess.
-			if (newDatabase.Files.Size() > 0) {
-				relativeFilePath = newDatabase.Files[0].Name;
+			UString folderOutPath = outputPath + explodeData.relativePath;
+			bool b = NWindows::NFile::NDirectory::CreateComplexDirectory(folderOutPath);
+			if (!b) { 
+				SHOW_ERROR("Couldn't create directory " << folderOutPath);
+				continue;
+			}
+
+			UString new_archive_file = folderOutPath + L'/';			
+			if (newDatabase.Files.Size() == 1) {// can use file names
 				if (!newDatabase.Files[0].IsDir) {
-					fileName = GetFileFromPath(relativeFilePath);
-					StripFile(relativeFilePath);
-				}
-			}
+					fileName = GetFileFromPath(newDatabase.Files[0].Name);
+					new_archive_file += fileName;
+				} else continue; // only directory 
 
-			UString folderOutPath = outputPath + relativeFilePath;
-			if (relativeFilePath.Length() != 0) {
-				bool b = NWindows::NFile::NDirectory::CreateComplexDirectory(folderOutPath);
-				if (!b) { 
-					SHOW_ERROR("Couldn't create directory " << folderOutPath);
-					continue;
-				}
-			}
-
-			UString new_archive_file = folderOutPath;			
-			if (newDatabase.Files.Size() == 1) // can use file names
-				new_archive_file += fileName;
-			else { // use folder as name 
+			} else { // use folder as name 
 				wchar_t folderNumber[32];
 				ConvertUInt32ToString(x, folderNumber);
 				new_archive_file += archiveName + L"_folder_" + folderNumber;			
@@ -233,10 +228,6 @@ HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 			out.Create(outstream, false);
 			out.SkipPrefixArchiveHeader();
 
-			CMyComPtr<COutStreamWithCRC> crcStream(new COutStreamWithCRC());
-			crcStream->Init();
-			crcStream->SetStream(out.SeqStream);
-	
 			// one crc per archive (even if it has multiple blocks)
 			for (int folderIndex = 0; folderIndex < newDatabase.Folders.Size(); 
 				folderIndex++)
@@ -245,7 +236,7 @@ HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 				UInt64 folderStartPackPos = explodeData.folderPositions[folderIndex];
 				
 				// write actual data
-				RINOK(WriteRange(inStream, crcStream/*out.SeqStream*/, 
+				RINOK(WriteRange(inStream, out.SeqStream, 
 					folderStartPackPos, folderLen, NULL));
 			}			
 
@@ -256,10 +247,6 @@ HRESULT ExplodeArchives(CCodecs *codecs, const CIntVector &formatIndices,
 
 			out.WriteDatabase(newDatabase, &headerMethod, headerOptions);
 			out.Close();
-
-			char crc_str[9];
-			ConvertUInt32ToHexWithZeros(crcStream->GetCRC(), crc_str);
-			g_StdOut << "Compressed block CRC " << crc_str << endl;
 		}		
 
 		archiveLink.Close();

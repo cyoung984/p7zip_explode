@@ -32,8 +32,12 @@ namespace N7z {
 	class CSzTree;
 	struct szExplodeData
 	{
+		UString relativePath;
 		CArchiveDatabase newDatabase;
 		CRecordVector<UInt64> folderSizes, folderPositions;
+		
+		szExplodeData(const UString& relativePath)
+			: relativePath(relativePath) {}
 	};
 class CHandler:
   #ifndef EXTRACT_ONLY
